@@ -17,16 +17,23 @@ pub struct GenCtx {
     pub depth: u8,
     // Should use async client and generate async code
     pub is_async: bool,
-    // Should serializable struct
-    pub gen_derive: bool,
+    // Derives to append to generated structs
+    pub gen_derive: Vec<String>,
+    // Lines to insert at the start of generated modules.
+    pub gen_use: Vec<String>,
+
+    // Derives to append to generated structs
+    pub gen_utoipa_fix: bool,
 }
 
 impl GenCtx {
-    pub fn new(depth: u8, is_async: bool, gen_derive: bool) -> Self {
+    pub fn new(depth: u8, is_async: bool, gen_derive: Vec<String>,gen_use: Vec<String>, gen_utoipa_fix: bool) -> Self {
         Self {
             depth,
             is_async,
             gen_derive,
+            gen_use,
+            gen_utoipa_fix
         }
     }
 
@@ -345,14 +352,14 @@ fn gen_row_structs(w: &mut impl Write, row: &PreparedItem, ctx: &GenCtx) {
         // Generate row struct
         let fields_name = fields.iter().map(|p| &p.ident.rs);
         let fields_ty = fields.iter().map(|p| p.own_struct(ctx));
-        let copy = if *is_copy { "Copy" } else { "" };
-        let ser_str = if ctx.gen_derive {
-            "serde::Serialize,"
-        } else {
-            ""
-        };
+        let mut derives = vec![];
+        if *is_copy {
+            derives.push("Copy");
+        }
+        derives.extend(ctx.gen_derive.iter().map(|x| x.as_str()));
+        let derive_str = derives.join(",");
         code!(w =>
-            #[derive($ser_str Debug, Clone, PartialEq,$copy)]
+            #[derive(Debug, Clone, PartialEq,$derive_str)]
             pub struct $name {
                 $(pub $fields_name : $fields_ty,)
             }
@@ -646,17 +653,18 @@ fn gen_custom_type(w: &mut impl Write, schema: &str, prepared: &PreparedType, ct
         name,
     } = prepared;
     let copy = if *is_copy { "Copy," } else { "" };
-    let ser_str = if ctx.gen_derive {
-        "serde::Serialize,"
-    } else {
-        ""
-    };
+    let derive_str = ctx.gen_derive.join(",");
     match content {
         PreparedContent::Enum(variants) => {
             let variants_ident = variants.iter().map(|v| &v.rs);
+            let utoipa_enum_fix = match ctx.gen_utoipa_fix {
+                true => format!("#[schema(as = super::super::types::public::{})]",struct_name),
+                false => "".to_string(),
+            };
             code!(w =>
-                #[derive($ser_str Debug, Clone, Copy, PartialEq, Eq)]
+                #[derive(Debug, Clone, Copy, PartialEq, Eq,$derive_str)]
                 #[allow(non_camel_case_types)]
+                $utoipa_enum_fix
                 pub enum $struct_name {
                     $($variants_ident,)
                 }
@@ -669,7 +677,7 @@ fn gen_custom_type(w: &mut impl Write, schema: &str, prepared: &PreparedType, ct
             {
                 let fields_ty = fields.iter().map(|p| p.own_struct(ctx));
                 code!(w =>
-                    #[derive($ser_str Debug,postgres_types::FromSql,$copy Clone, PartialEq)]
+                    #[derive(Debug,postgres_types::FromSql,$copy Clone, PartialEq,$derive_str)]
                     #[postgres(name = "$name")]
                     pub struct $struct_name {
                         $(
@@ -730,9 +738,10 @@ fn gen_type_modules<W: Write>(
                     gen_custom_type(w, schema, ty, ctx)
                 }
             };
-
+            let lines = ctx.gen_use.join("\n");
             code!(w =>
             pub mod $schema {
+                $lines
                 $!lazy
             });
         }
@@ -755,13 +764,14 @@ pub(crate) fn generate(preparation: Preparation, settings: CodegenSettings) -> S
     gen_type_modules(
         w,
         &preparation.types,
-        &GenCtx::new(1, settings.gen_async, settings.derive_ser),
+        &GenCtx::new(1, settings.gen_async, settings.gen_derive.clone(),settings.gen_use.clone(),settings.gen_utoipa_enum_fix),
     );
     // Generate queries
     let query_modules = preparation.modules.iter().map(|module| {
+        let set = settings.clone();
         move |w: &mut String| {
             let name = &module.info.name;
-            let ctx = GenCtx::new(2, settings.gen_async, settings.derive_ser);
+            let ctx = GenCtx::new(2, settings.gen_async, set.gen_derive.clone(),set.gen_use.clone(),settings.gen_utoipa_enum_fix);
             let params_string = module
                 .params
                 .values()
@@ -773,8 +783,10 @@ pub(crate) fn generate(preparation: Preparation, settings: CodegenSettings) -> S
 
             let sync_specific = |w: &mut String| {
                 let gen_specific = |depth: u8, is_async: bool| {
+                    
+                    let set = set.clone();
                     move |w: &mut String| {
-                        let ctx = GenCtx::new(depth, is_async, settings.derive_ser);
+                        let ctx = GenCtx::new(depth, is_async, set.gen_derive.clone(),set.gen_use.clone(),settings.gen_utoipa_enum_fix);
                         let import = if is_async {
                             "use futures::{StreamExt, TryStreamExt};use futures; use cornucopia_async::GenericClient;"
                         } else {
@@ -817,9 +829,11 @@ pub(crate) fn generate(preparation: Preparation, settings: CodegenSettings) -> S
 
                 }
             };
+            let lines = set.gen_use.join("\n");
 
             code!(w =>
                 pub mod $name {
+                    $lines
                     $($!params_string)
                     $($!rows_struct_string)
                     $!sync_specific
@@ -827,12 +841,14 @@ pub(crate) fn generate(preparation: Preparation, settings: CodegenSettings) -> S
             );
         }
     });
+    let lines = settings.gen_use.join("\n");
     code!(w =>
         #[allow(clippy::all, clippy::pedantic)]
         #[allow(unused_variables)]
         #[allow(unused_imports)]
         #[allow(dead_code)]
         pub mod queries {
+            $lines
             $($!query_modules)
         }
     );

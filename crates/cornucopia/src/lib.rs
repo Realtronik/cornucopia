@@ -31,11 +31,13 @@ pub use error::Error;
 pub use load_schema::load_schema;
 
 /// Struct containing the settings for code generation.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct CodegenSettings {
     pub gen_async: bool,
     pub gen_sync: bool,
-    pub derive_ser: bool,
+    pub gen_derive: Vec<String>,
+    pub gen_use: Vec<String>,
+    pub gen_utoipa_enum_fix: bool,
 }
 
 /// Generates Rust queries from PostgreSQL queries located at `queries_path`,

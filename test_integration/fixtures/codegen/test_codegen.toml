@@ -4,5 +4,5 @@ base_path = "test_codegen"
 destination = "src/cornucopia.rs"
 sync = true
 async = true
-derive_ser = true
+gen_derive = ["serde::Serialize"]
 run = true

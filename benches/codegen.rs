@@ -16,7 +16,9 @@ fn bench(c: &mut Criterion) {
                 CodegenSettings {
                     gen_sync: true,
                     gen_async: false,
-                    derive_ser: true,
+                    gen_use: vec![],
+                    gen_derive: vec!["serde::Serialize".to_string()],
+                    gen_utoipa_enum_fix: false,
                 },
             )
             .unwrap()
@@ -31,7 +33,9 @@ fn bench(c: &mut Criterion) {
                 CodegenSettings {
                     gen_sync: true,
                     gen_async: false,
-                    derive_ser: true,
+                    gen_use: vec![],
+                    gen_derive: vec!["serde::Serialize".to_string()],
+                    gen_utoipa_enum_fix: false,
                 },
             )
             .unwrap()

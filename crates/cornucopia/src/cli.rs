@@ -25,9 +25,16 @@ struct Args {
     /// Generate asynchronous rust code
     #[clap(long)]
     r#async: bool,
-    /// Derive serde's `Serialize` trait for generated types.
+    /// List of types to derive
     #[clap(long)]
-    serialize: bool,
+    derive: Vec<String>,
+    // Lines to insert at the start of generated modules.
+    #[clap(long)]
+    use_lines: Vec<String>,
+
+    /// List of types to derive
+    #[clap(long)]
+    utoipa_enum_fix: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -53,13 +60,17 @@ pub fn run() -> Result<(), Error> {
         action,
         sync,
         r#async,
-        serialize,
+        derive,
+        use_lines,
+        utoipa_enum_fix,
     } = Args::parse();
 
     let settings = CodegenSettings {
         gen_async: r#async || !sync,
         gen_sync: sync,
-        derive_ser: serialize,
+        gen_derive: derive,
+        gen_use: use_lines,
+        gen_utoipa_enum_fix: utoipa_enum_fix,
     };
 
     match action {

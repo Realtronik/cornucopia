@@ -63,6 +63,11 @@
 
 <br />
 
+Forked from [Cornucopia](https://github.com/cornucopia-rs/cornucopia), added the following features:
+- Derive custom traits, not just serde::Serialize (BREAKING CHANGE, just add serde::Serialize to gen_use instead of setting derive_ser. CLI changes 'serialize' to 'derive', with the value being any number of derives)
+- Optional fix for [utoipa issue](https://github.com/juhaku/utoipa/issues/862), with --utoipa-enum-fix or via struct.
+Not really ready for external use, just uploaded if it is useful for someone.
+
 Cornucopia is a tool powered by [`rust-postgres`](https://github.com/sfackler/rust-postgres) designed to generate type-checked Rust interfaces from your PostgreSQL queries. It works by preparing your queries against an actual database and then running an extensive validation suite on them. Once the queries are prepared and validated, Rust code is generated into a module, which can be imported and used in your project. 
 
 The basic premise is thus to:

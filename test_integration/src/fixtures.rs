@@ -58,7 +58,9 @@ pub(crate) struct CodegenTest {
     #[serde(default)]
     pub(crate) r#async: bool,
     #[serde(default)]
-    pub(crate) derive_ser: bool,
+    pub(crate) gen_derive: Vec<String>,
+    #[serde(default)]
+    pub(crate) gen_use: Vec<String>,
     #[serde(default)]
     pub(crate) run: bool,
 }
@@ -76,7 +78,9 @@ impl From<&CodegenTest> for CodegenSettings {
         Self {
             gen_async: codegen_test.r#async || !codegen_test.sync,
             gen_sync: codegen_test.sync,
-            derive_ser: codegen_test.derive_ser,
+            gen_derive: codegen_test.gen_derive.clone(),
+            gen_use: codegen_test.gen_use.clone(),
+            gen_utoipa_enum_fix: false,
         }
     }
 }
@@ -93,9 +97,11 @@ pub(crate) struct ErrorTest {
 impl From<&ErrorTest> for CodegenSettings {
     fn from(_error_test: &ErrorTest) -> Self {
         Self {
-            derive_ser: false,
+            gen_derive: vec![],
             gen_async: false,
+            gen_use: vec![],
             gen_sync: true,
+            gen_utoipa_enum_fix: false,
         }
     }
 }

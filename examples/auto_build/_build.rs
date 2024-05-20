@@ -10,7 +10,7 @@ fn main() -> Result<(), Error> {
     let destination = "src/cornucopia.rs";
     let settings = CodegenSettings {
         is_async: true,
-        derive_ser: false,
+        gen_derive: vec![],
     };
 
     println!("cargo:rerun-if-changed={queries_path}");
